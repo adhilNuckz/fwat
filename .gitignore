@@ -1,0 +1,17 @@
+# Binaries
+whatsapp-dashboard
+*.exe
+*.bin
+
+# Data & SQLite Databases
+data/
+*.db
+*.db-journal
+
+# Downloaded Media
+media/
+
+# OS / Editor files
+.DS_Store
+*.swp
+*.bak
