@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Help — WhatsApp Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --bg-primary: #0f172a; --bg-sidebar: #1e293b; }
+    html, body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100%; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* Code blocks */
+    .code-block {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 0.85rem;
+      color: #7dd3fc;
+      overflow-x: auto;
+      position: relative;
+    }
+    .code-block .comment { color: #475569; }
+    .code-block .cmd { color: #86efac; }
+    .code-block .path { color: #fcd34d; }
+    .code-block .env-key { color: #f9a8d4; }
+    .code-block .env-val { color: #a5f3fc; }
+
+    /* Section cards */
+    .section-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 28px 32px;
+    }
+
+    /* Warning / info boxes */
+    .warn-box {
+      background: #451a03;
+      border: 1px solid #92400e;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #fde68a;
+    }
+    .info-box {
+      background: #0c1a3a;
+      border: 1px solid #1e3a8a;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #bfdbfe;
+    }
+    .success-box {
+      background: #052e16;
+      border: 1px solid #15803d;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #bbf7d0;
+    }
+    .error-box {
+      background: #450a0a;
+      border: 1px solid #991b1b;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #fca5a5;
+    }
+
+    /* Directory tree */
+    .dir-tree {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 20px 24px;
+      font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      line-height: 1.8;
+    }
+    .dir-tree .dir { color: #60a5fa; font-weight: 600; }
+    .dir-tree .file { color: #94a3b8; }
+    .dir-tree .comment { color: #475569; font-style: italic; }
+
+    /* Copy button */
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      background: #334155;
+      color: #94a3b8;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .copy-btn:hover { background: #475569; color: #e2e8f0; }
+    .copy-btn.copied { background: #15803d; color: #dcfce7; }
+
+    /* TOC */
+    .toc-link {
+      color: #64748b;
+      text-decoration: none;
+      transition: color 0.15s;
+      font-size: 0.875rem;
+    }
+    .toc-link:hover { color: #22c55e; }
+
+    h2.section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h3.sub-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 10px;
+      margin-top: 20px;
+    }
+
+    .tip-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.9rem;
+      color: #cbd5e1;
+    }
+    .tip-item:last-child { border-bottom: none; }
+    .tip-icon { font-size: 1.1rem; shrink: 0; margin-top: 1px; }
+
+    .troubleshoot-item {
+      padding: 14px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+    .troubleshoot-item:last-child { border-bottom: none; }
+    .troubleshoot-q { font-weight: 600; color: #f87171; margin-bottom: 6px; font-size: 0.9rem; }
+    .troubleshoot-a { color: #94a3b8; font-size: 0.875rem; line-height: 1.6; }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      background: #334155;
+      color: #e2e8f0;
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+    .back-btn:hover { background: #475569; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ NAVBAR -->
+<nav style="background:#0f172a; border-bottom:1px solid #1e293b;" class="sticky top-0 z-30">
+  <div class="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">&#x1F7E2;</span>
+      <span class="font-bold text-lg text-white tracking-tight">WhatsApp Dashboard</span>
+      <span class="px-2 py-0.5 rounded text-xs font-medium" style="background:#1e293b; color:#22c55e; border:1px solid #15803d;">Help</span>
+    </div>
+    <a href="/" class="back-btn">&#8592; Back to Dashboard</a>
+  </div>
+</nav>
+
+<!-- ============================================================ PAGE BODY -->
+<div class="max-w-5xl mx-auto px-6 py-10">
+
+  <!-- Page header -->
+  <div class="mb-10">
+    <h1 class="text-3xl font-bold text-white mb-3">Documentation &amp; Help</h1>
+    <p class="text-slate-400 text-base">Everything you need to manage, configure, and troubleshoot your WhatsApp Dashboard.</p>
+  </div>
+
+  <!-- TOC -->
+  <div class="section-card mb-10">
+    <div class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Contents</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <a href="#service-management" class="toc-link flex items-center gap-2 py-1">
+        <span style="color:#22c55e;">&#167;1</span> Service Management Commands
+      </a>
+      <a href="#custom-auth" class="toc-link flex items-center gap-2 py-1">
+        <span style="color:#22c55e;">&#167;2</span> Custom Authentication
+      </a>
+      <a href="#ping-tool" class="toc-link flex items-center gap-2 py-1">
+        <span style="color:#22c55e;">&#167;3</span> Ping Tool Best Practices
+      </a>
+      <a href="#media-storage" class="toc-link flex items-center gap-2 py-1">
+        <span style="color:#22c55e;">&#167;4</span> Media Storage
+      </a>
+      <a href="#troubleshooting" class="toc-link flex items-center gap-2 py-1">
+        <span style="color:#22c55e;">&#167;5</span> Troubleshooting
+      </a>
+    </div>
+  </div>
+
+  <!-- ======================================================== S1 -->
+  <section id="service-management" class="section-card mb-8 scroll-mt-20">
+    <h2 class="section-title">
+      <span class="text-2xl">&#x1F527;</span> &#167;1 &#8212; Service Management Commands
+    </h2>
+    <p class="text-slate-400 text-sm mb-6">The dashboard runs as a <code style="color:#93c5fd;">systemd</code> service named <code style="color:#93c5fd;">wa-dashboard</code>. Use the commands below to control it.</p>
+
+    <h3 class="sub-title">Check service status</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">sudo systemctl status wa-dashboard</span>
+    </div>
+
+    <h3 class="sub-title">Follow live logs (Ctrl+C to exit)</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">sudo journalctl -u wa-dashboard -f</span>
+    </div>
+
+    <h3 class="sub-title">Restart the service</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">sudo systemctl restart wa-dashboard</span>
+    </div>
+
+    <h3 class="sub-title">Stop the service</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">sudo systemctl stop wa-dashboard</span>
+    </div>
+
+    <h3 class="sub-title">Enable auto-start on boot</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">sudo systemctl enable wa-dashboard</span>
+    </div>
+
+    <h3 class="sub-title">View last 100 log lines</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">sudo journalctl -u wa-dashboard -n 100 --no-pager</span>
+    </div>
+
+    <div class="info-box mt-6 flex items-start gap-3 text-sm">
+      <span class="text-xl" style="flex-shrink:0;">&#x2139;&#xFE0F;</span>
+      <div>
+        <strong>Tip:</strong> Run <code style="color:#93c5fd;background:#0f172a;padding:0 4px;border-radius:3px;">systemctl status wa-dashboard</code> first after any configuration change to confirm the service started correctly before tailing logs.
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== S2 -->
+  <section id="custom-auth" class="section-card mb-8 scroll-mt-20">
+    <h2 class="section-title">
+      <span class="text-2xl">&#x1F510;</span> &#167;2 &#8212; Custom Authentication
+    </h2>
+    <p class="text-slate-400 text-sm mb-6">The dashboard supports HTTP Basic Authentication via environment variables in the systemd service unit file. Follow the steps below to change credentials.</p>
+
+    <h3 class="sub-title">Step 1 &#8212; Edit the service unit file</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">sudo nano /etc/systemd/system/wa-dashboard.service</span>
+    </div>
+
+    <h3 class="sub-title">Step 2 &#8212; Locate and update the Environment variables</h3>
+    <p class="text-slate-400 text-xs mb-3">Find the <code style="color:#f9a8d4;">[Service]</code> section and edit (or add) these lines:</p>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;white-space:pre-wrap;"><span class="comment"># /etc/systemd/system/wa-dashboard.service</span>
+[Unit]
+Description=WhatsApp Web Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=<span class="path">www-data</span>
+WorkingDirectory=<span class="path">/opt/wa-dashboard</span>
+ExecStart=<span class="path">/opt/wa-dashboard/wa-dashboard</span>
+Restart=on-failure
+RestartSec=5
+
+<span class="comment"># Authentication credentials</span>
+Environment="<span class="env-key">AUTH_USERNAME</span>=<span class="env-val">your_username_here</span>"
+Environment="<span class="env-key">AUTH_PASSWORD</span>=<span class="env-val">your_secure_password_here</span>"
+
+<span class="comment"># Optional: port override (default 8080)</span>
+Environment="<span class="env-key">PORT</span>=<span class="env-val">8080</span>"
+
+[Install]
+WantedBy=multi-user.target</pre>
+    </div>
+
+    <h3 class="sub-title">Step 3 &#8212; Apply changes</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart wa-dashboard</span>
+    </div>
+
+    <div class="warn-box mt-6 flex items-start gap-3 text-sm">
+      <span class="text-xl" style="flex-shrink:0;">&#x26A0;&#xFE0F;</span>
+      <div>
+        <strong>Security note:</strong> Avoid using special characters like <code style="background:#78350f;padding:0 4px;border-radius:3px;">"</code> or <code style="background:#78350f;padding:0 4px;border-radius:3px;">$</code> unescaped in the password value. Prefer using <code style="background:#78350f;padding:0 4px;border-radius:3px;">EnvironmentFile=/etc/wa-dashboard.env</code> for sensitive values, with the file chmod'd to <code style="background:#78350f;padding:0 4px;border-radius:3px;">600</code> and owned by root.
+      </div>
+    </div>
+
+    <h3 class="sub-title" style="margin-top:24px;">Alternative &#8212; Using an environment file (recommended for secrets)</h3>
+    <div class="code-block mb-3">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;"><span class="comment"># /etc/wa-dashboard.env  (chmod 600, owner root)</span>
+<span class="env-key">AUTH_USERNAME</span>=<span class="env-val">admin</span>
+<span class="env-key">AUTH_PASSWORD</span>=<span class="env-val">supersecret</span></pre>
+    </div>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;"><span class="comment"># In [Service] section, replace Environment= lines with:</span>
+<span class="cmd">EnvironmentFile=/etc/wa-dashboard.env</span></pre>
+    </div>
+  </section>
+
+  <!-- ======================================================== S3 -->
+  <section id="ping-tool" class="section-card mb-8 scroll-mt-20">
+    <h2 class="section-title">
+      <span class="text-2xl">&#x26A1;</span> &#167;3 &#8212; Ping Tool Best Practices
+    </h2>
+
+    <div class="warn-box flex items-start gap-3 text-sm mb-6">
+      <span style="font-size:1.5rem;flex-shrink:0;">&#x26A0;&#xFE0F;</span>
+      <div>
+        <strong style="color:#fcd34d;font-size:1rem;">Rate Limiting Warning</strong><br/>
+        Use intervals of <strong>3+ seconds</strong> to avoid WhatsApp rate limiting and account bans. Sending too many messages too quickly can trigger WhatsApp's automated abuse detection, resulting in a temporary or permanent account suspension.
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:0;margin-top:8px;">
+      <div class="tip-item">
+        <span class="tip-icon">&#x2705;</span>
+        <div>
+          <strong style="color:#e2e8f0;">Minimum 3-second intervals</strong><br/>
+          <span style="font-size:0.875rem;color:#94a3b8;">Set the interval to at least 3 seconds between sends. For bulk operations (10+), use 5&#8211;10 seconds.</span>
+        </div>
+      </div>
+      <div class="tip-item">
+        <span class="tip-icon">&#x2705;</span>
+        <div>
+          <strong style="color:#e2e8f0;">Keep repeat counts reasonable</strong><br/>
+          <span style="font-size:0.875rem;color:#94a3b8;">Avoid sending more than 20&#8211;30 messages in a single ping session. Split larger batches across time.</span>
+        </div>
+      </div>
+      <div class="tip-item">
+        <span class="tip-icon">&#x2705;</span>
+        <div>
+          <strong style="color:#e2e8f0;">Vary message content</strong><br/>
+          <span style="font-size:0.875rem;color:#94a3b8;">Identical repeated messages are more likely to be flagged as spam. Personalize or vary content when possible.</span>
+        </div>
+      </div>
+      <div class="tip-item">
+        <span class="tip-icon">&#x2705;</span>
+        <div>
+          <strong style="color:#e2e8f0;">Use for legitimate purposes only</strong><br/>
+          <span style="font-size:0.875rem;color:#94a3b8;">The ping tool is designed for reminders, alerts, and legitimate notifications &#8212; not bulk marketing or unsolicited messaging.</span>
+        </div>
+      </div>
+      <div class="tip-item">
+        <span class="tip-icon">&#x274C;</span>
+        <div>
+          <strong style="color:#f87171;">Avoid sub-second or 1-second intervals</strong><br/>
+          <span style="font-size:0.875rem;color:#94a3b8;">Even a few messages sent in rapid succession can trigger WhatsApp's rate limiter. 1-second intervals are not safe for counts above 3.</span>
+        </div>
+      </div>
+      <div class="tip-item">
+        <span class="tip-icon">&#x274C;</span>
+        <div>
+          <strong style="color:#f87171;">Don't use on numbers that haven't messaged you</strong><br/>
+          <span style="font-size:0.875rem;color:#94a3b8;">Sending messages to people who haven't initiated contact increases the spam report risk significantly.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="success-box mt-6 flex items-start gap-3 text-sm">
+      <span style="font-size:1.2rem;flex-shrink:0;">&#x1F4A1;</span>
+      <div>
+        <strong>Recommended defaults:</strong> Count = 1&#8211;5, Interval = 5&#8211;10 seconds. For reminders to self: any count with 3+ second intervals is safe.
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== S4 -->
+  <section id="media-storage" class="section-card mb-8 scroll-mt-20">
+    <h2 class="section-title">
+      <span class="text-2xl">&#x1F4C1;</span> &#167;4 &#8212; Media Storage
+    </h2>
+    <p class="text-slate-400 text-sm mb-6">All media received through WhatsApp is automatically downloaded and stored on disk. The <code style="color:#93c5fd;">/media/</code> endpoint serves these files to the browser.</p>
+
+    <h3 class="sub-title">Directory structure</h3>
+    <div class="dir-tree mb-6">
+<pre style="margin:0;"><span class="dir">./media/</span>
+&#9500;&#9472;&#9472; <span class="dir">images/</span>     <span class="comment">&#8592; JPEG / PNG / WEBP images from chats</span>
+&#9500;&#9472;&#9472; <span class="dir">videos/</span>     <span class="comment">&#8592; MP4 / MKV video files</span>
+&#9500;&#9472;&#9472; <span class="dir">audio/</span>      <span class="comment">&#8592; OGG voice notes &amp; audio messages</span>
+&#9492;&#9472;&#9472; <span class="dir">documents/</span>  <span class="comment">&#8592; PDF, DOCX, XLSX, and other documents</span></pre>
+    </div>
+
+    <h3 class="sub-title">Check disk usage</h3>
+    <div class="code-block mb-4">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      <span class="cmd">du -sh ./media/*/</span>
+    </div>
+
+    <h3 class="sub-title">Fix permissions (if media is not loading)</h3>
+    <div class="code-block mb-4">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;"><span class="cmd">sudo chown -R www-data:www-data ./media/</span>
+<span class="cmd">sudo chmod -R 755 ./media/</span></pre>
+    </div>
+
+    <h3 class="sub-title">Clean up old media (older than 90 days)</h3>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;"><span class="comment"># Preview what would be deleted</span>
+<span class="cmd">find ./media/ -type f -mtime +90 -print</span>
+
+<span class="comment"># Actually delete</span>
+<span class="cmd">find ./media/ -type f -mtime +90 -delete</span></pre>
+    </div>
+
+    <div class="info-box mt-6 flex items-start gap-3 text-sm">
+      <span style="font-size:1.2rem;flex-shrink:0;">&#x2139;&#xFE0F;</span>
+      <div>
+        Media files are referenced in the SQLite database by relative path. Deleting files manually will not break message history, but the media will display as a broken link in the UI. Run a vacuum on the DB if needed: <code style="color:#93c5fd;background:#0f172a;padding:0 4px;border-radius:3px;">sqlite3 messages.db "VACUUM;"</code>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== S5 -->
+  <section id="troubleshooting" class="section-card mb-16 scroll-mt-20">
+    <h2 class="section-title">
+      <span class="text-2xl">&#x1F6E0;&#xFE0F;</span> &#167;5 &#8212; Troubleshooting
+    </h2>
+    <p class="text-slate-400 text-sm mb-6">Common issues and their solutions. Always check the logs first.</p>
+
+    <div class="troubleshoot-item">
+      <div class="troubleshoot-q">&#x2753; QR code is not showing / blank QR page</div>
+      <div class="troubleshoot-a">
+        <p class="mb-2">The SSE stream from <code style="color:#93c5fd;">/api/qr</code> is likely not connecting. Check the following:</p>
+        <div class="code-block mb-2">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <span class="cmd">sudo journalctl -u wa-dashboard -n 50 --no-pager</span>
+        </div>
+        <ul style="list-style:disc;padding-left:20px;color:#94a3b8;font-size:0.875rem;line-height:1.8;margin-top:8px;">
+          <li>Look for <code style="color:#f87171;">QR generation failed</code> or <code style="color:#f87171;">websocket error</code> messages.</li>
+          <li>Ensure the server has internet access to reach WhatsApp servers.</li>
+          <li>Try restarting: <code style="color:#86efac;">sudo systemctl restart wa-dashboard</code></li>
+          <li>If the QR expires, it auto-refreshes every ~20 seconds &#8212; wait for a new one.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="troubleshoot-item">
+      <div class="troubleshoot-q">&#x2753; Messages are not saving to the database</div>
+      <div class="troubleshoot-a">
+        <p class="mb-2">This is usually a file permission issue with the SQLite database.</p>
+        <div class="code-block mb-2">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;"><span class="comment"># Check the DB file permissions</span>
+<span class="cmd">ls -la /opt/wa-dashboard/messages.db</span>
+
+<span class="comment"># Fix ownership if needed</span>
+<span class="cmd">sudo chown www-data:www-data /opt/wa-dashboard/messages.db</span>
+<span class="cmd">sudo chmod 664 /opt/wa-dashboard/messages.db</span></pre>
+        </div>
+        <ul style="list-style:disc;padding-left:20px;color:#94a3b8;font-size:0.875rem;line-height:1.8;margin-top:8px;">
+          <li>Ensure the directory is writable by the service user (usually <code style="color:#93c5fd;">www-data</code>).</li>
+          <li>Check for disk space: <code style="color:#86efac;">df -h</code></li>
+          <li>SQLite WAL mode must be enabled &#8212; check the application logs for WAL errors.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="troubleshoot-item">
+      <div class="troubleshoot-q">&#x2753; Service is not starting / crashes immediately</div>
+      <div class="troubleshoot-a">
+        <p class="mb-2">Check whether the Go binary was compiled correctly and is executable.</p>
+        <div class="code-block mb-2">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;"><span class="comment"># Check binary exists and is executable</span>
+<span class="cmd">ls -la /opt/wa-dashboard/wa-dashboard</span>
+<span class="cmd">file /opt/wa-dashboard/wa-dashboard</span>
+
+<span class="comment"># Try running it manually to see errors</span>
+<span class="cmd">cd /opt/wa-dashboard &amp;&amp; ./wa-dashboard</span>
+
+<span class="comment"># Check if the port is already in use</span>
+<span class="cmd">sudo ss -tlnp | grep :8080</span></pre>
+        </div>
+        <ul style="list-style:disc;padding-left:20px;color:#94a3b8;font-size:0.875rem;line-height:1.8;margin-top:8px;">
+          <li>Recompile if needed: <code style="color:#86efac;">cd /path/to/source &amp;&amp; go build -o wa-dashboard .</code></li>
+          <li>Ensure <code style="color:#93c5fd;">GOARCH</code> and <code style="color:#93c5fd;">GOOS</code> match your server (e.g. <code style="color:#93c5fd;">linux/amd64</code> or <code style="color:#93c5fd;">linux/arm64</code>).</li>
+          <li>Check all required environment variables are set in the service unit.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="troubleshoot-item">
+      <div class="troubleshoot-q">&#x2753; Dashboard shows "Disconnected" after successful QR scan</div>
+      <div class="troubleshoot-a">
+        <p class="mb-2">The WhatsApp session may have been invalidated or the credentials file is missing.</p>
+        <div class="code-block mb-2">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;"><span class="comment"># Check if session store exists</span>
+<span class="cmd">ls -la /opt/wa-dashboard/session/</span>
+
+<span class="comment"># Remove old/corrupted session and re-pair</span>
+<span class="cmd">sudo systemctl stop wa-dashboard</span>
+<span class="cmd">rm -rf /opt/wa-dashboard/session/</span>
+<span class="cmd">sudo systemctl start wa-dashboard</span></pre>
+        </div>
+        <ul style="list-style:disc;padding-left:20px;color:#94a3b8;font-size:0.875rem;line-height:1.8;margin-top:8px;">
+          <li>After removing the session, re-scan the QR code from the dashboard.</li>
+          <li>On WhatsApp mobile: Settings &#8594; Linked Devices &#8594; Remove old entries if shown.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="troubleshoot-item">
+      <div class="troubleshoot-q">&#x2753; Media files (images, videos, audio) not loading</div>
+      <div class="troubleshoot-a">
+        <p class="mb-2">The <code style="color:#93c5fd;">/media/</code> route may not be serving files, or file permissions are wrong.</p>
+        <div class="code-block mb-2">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+<pre style="margin:0;"><span class="comment"># Test media endpoint directly</span>
+<span class="cmd">curl -I http://localhost:8080/media/images/test.jpg</span>
+
+<span class="comment"># Fix media directory permissions</span>
+<span class="cmd">sudo chown -R www-data:www-data /opt/wa-dashboard/media/</span>
+<span class="cmd">sudo chmod -R 755 /opt/wa-dashboard/media/</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="troubleshoot-item" style="border-bottom:none;">
+      <div class="troubleshoot-q">&#x2753; Ping or Schedule API returns 500 errors</div>
+      <div class="troubleshoot-a">
+        <p class="mb-2">Check if the WhatsApp client is connected and the phone number format is correct.</p>
+        <ul style="list-style:disc;padding-left:20px;color:#94a3b8;font-size:0.875rem;line-height:1.8;">
+          <li>Phone numbers must include the country code without <code style="color:#93c5fd;">+</code> (e.g., <code style="color:#86efac;">919876543210</code> for India).</li>
+          <li>The recipient must have a WhatsApp account.</li>
+          <li>Ensure the service is in <strong>connected</strong> state before sending (green status indicator).</li>
+          <li>Check application logs: <code style="color:#86efac;">sudo journalctl -u wa-dashboard -f</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="error-box mt-6 flex items-start gap-3 text-sm">
+      <span style="font-size:1.2rem;flex-shrink:0;">&#x1F198;</span>
+      <div>
+        <strong>Still stuck?</strong> Always run <code style="color:#fca5a5;background:#450a0a;padding:0 4px;border-radius:3px;">sudo journalctl -u wa-dashboard -n 100 --no-pager</code> and look at the last error lines. Most issues are clearly logged with the error reason.
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============================================================ FOOTER -->
+<footer style="border-top:1px solid #1e293b; background:#0a0f1e;" class="py-6 text-center text-xs text-slate-600">
+  WhatsApp Dashboard &#8212; Self-hosted &#8212;
+  <a href="/" style="color:#15803d;text-decoration:none;" onmouseover="this.style.color='#22c55e'" onmouseout="this.style.color='#15803d'">&#8592; Back to Dashboard</a>
+</footer>
+
+<script>
+  function copyCode(btn) {
+    const block = btn.parentElement;
+    const clone = block.cloneNode(true);
+    clone.querySelectorAll('.copy-btn').forEach(b => b.remove());
+    const text = clone.innerText.trim();
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    }).catch(() => {
+      btn.textContent = 'Error';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    });
+  }
+
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  });
+</script>
+</body>
+</html>
