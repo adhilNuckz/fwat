@@ -30,11 +30,41 @@ echo -e "${NC}"
 
 # ─── Validate Running as Root ───────────────────────────────────────────────
 if [ "$EUID" -ne 0 ]; then
-    err "Please run as root: sudo ./deploy.sh"
+    err "Please run as root: sudo ./deploy.sh or curl ... | sudo bash"
 fi
 
-# ─── Detect Repo Root ───────────────────────────────────────────────────────
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ─── Detect or Clone Repo ───────────────────────────────────────────────────
+GIT_REPO_URL="https://github.com/adhilNuckz/fwat.git"
+DEFAULT_INSTALL_DIR="/opt/fwat"
+
+SCRIPT_DIR=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)"
+fi
+
+if [ -n "$SCRIPT_DIR" ] && [ -f "${SCRIPT_DIR}/cmd/main.go" ]; then
+    REPO_DIR="$SCRIPT_DIR"
+elif [ -f "./cmd/main.go" ]; then
+    REPO_DIR="$(pwd)"
+else
+    # Executed via pipe (e.g. curl ... | sudo bash)
+    REPO_DIR="$DEFAULT_INSTALL_DIR"
+    echo -e "${YELLOW}Piped execution detected. Preparing repository at ${REPO_DIR}...${NC}"
+    
+    export DEBIAN_FRONTEND=noninteractive
+    apt update -y && apt install -y git curl ca-certificates
+    
+    if [ -d "${REPO_DIR}/.git" ]; then
+        echo "Updating existing repository at ${REPO_DIR}..."
+        git -C "${REPO_DIR}" fetch --all
+        git -C "${REPO_DIR}" reset --hard origin/main || true
+    else
+        echo "Cloning ${GIT_REPO_URL} into ${REPO_DIR}..."
+        mkdir -p "$(dirname "$REPO_DIR")"
+        git clone "${GIT_REPO_URL}" "${REPO_DIR}"
+    fi
+fi
+
 REPO_NAME="$(basename "$REPO_DIR")"
 BINARY_NAME="whatsapp-dashboard"
 SERVICE_NAME="wa-dashboard"
@@ -52,7 +82,6 @@ ok "System updated"
 
 step "Installing required packages"
 apt install -y \
-    golang \
     git \
     sqlite3 \
     libsqlite3-dev \
@@ -60,7 +89,37 @@ apt install -y \
     curl \
     ca-certificates \
     build-essential
-ok "Build tools installed"
+
+# Ensure Go >= 1.21 is available
+NEED_GO_INSTALL=false
+if ! command -v go &>/dev/null; then
+    NEED_GO_INSTALL=true
+else
+    CURRENT_GO_VER=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | sed 's/go//')
+    MAJOR=$(echo "$CURRENT_GO_VER" | cut -d. -f1)
+    MINOR=$(echo "$CURRENT_GO_VER" | cut -d. -f2)
+    if [ "$MAJOR" -lt 1 ] || { [ "$MAJOR" -eq 1 ] && [ "$MINOR" -lt 21 ]; }; then
+        warn "Detected Go version ${CURRENT_GO_VER} is below 1.21. Installing Go 1.22..."
+        NEED_GO_INSTALL=true
+    fi
+fi
+
+if [ "$NEED_GO_INSTALL" = true ]; then
+    echo "  Installing Go 1.22.5 binary from official Go distribution..."
+    ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
+    case "$ARCH" in
+        amd64|x86_64) GO_ARCH="amd64" ;;
+        arm64|aarch64) GO_ARCH="arm64" ;;
+        *) GO_ARCH="amd64" ;;
+    esac
+    curl -fsSL "https://go.dev/dl/go1.22.5.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tar.gz
+    rm -rf /usr/local/go
+    tar -C /usr/local -xzf /tmp/go.tar.gz
+    rm -f /tmp/go.tar.gz
+    ln -sf /usr/local/go/bin/go /usr/bin/go
+    ln -sf /usr/local/go/bin/gofmt /usr/bin/gofmt
+fi
+ok "Build tools and Go ready"
 
 # Verify Go version
 GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
