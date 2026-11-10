@@ -525,9 +525,14 @@
       const bodyText = textContent ? `<div class="text-sm leading-relaxed mt-1 whitespace-pre-wrap" style="${textStyle}">${escHtml(textContent)}</div>` : '';
 
       let mediaHtml = '';
-      const mediaPath = msg.media_path || msg.media_url || '';
+      let mediaPath = msg.media_path || msg.media_url || '';
       if (msg.media_type && mediaPath) {
-        const url = mediaPath.startsWith('/media/') ? mediaPath : '/media/' + mediaPath;
+        if (mediaPath.includes('/media/')) {
+          mediaPath = mediaPath.substring(mediaPath.indexOf('/media/') + 7);
+        } else if (mediaPath.startsWith('/')) {
+          mediaPath = mediaPath.replace(/^\/+/, '');
+        }
+        const url = '/media/' + mediaPath;
         if (msg.media_type === 'image' || msg.media_type === 'images') {
           mediaHtml = `<img class="media-img mt-2" src="${url}" alt="image" onclick="openLightbox('${url}')" />`;
         } else if (msg.media_type === 'video' || msg.media_type === 'videos') {
