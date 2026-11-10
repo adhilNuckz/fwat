@@ -20,6 +20,7 @@ type Chat struct {
 	Name          string    `json:"name"`
 	UnreadCount   int       `json:"unread_count"`
 	LastMessageAt time.Time `json:"last_message_at"`
+	LastMessage   string    `json:"last_message"`
 }
 
 // Message represents a row in the messages table.
@@ -32,6 +33,7 @@ type Message struct {
 	MediaType   string    `json:"media_type"`
 	IsDeleted   bool      `json:"is_deleted"`
 	Timestamp   time.Time `json:"timestamp"`
+	IsFromMe    bool      `json:"is_from_me"`
 }
 
 // ScheduledMessage represents a row in the scheduled_messages table.
@@ -67,7 +69,8 @@ func (d *DB) InitSchema() error {
 			jid              TEXT PRIMARY KEY,
 			name             TEXT,
 			unread_count     INTEGER   DEFAULT 0,
-			last_message_at  TIMESTAMP
+			last_message_at  TIMESTAMP,
+			last_message     TEXT      DEFAULT ''
 		);`,
 		`CREATE TABLE IF NOT EXISTS messages (
 			id           TEXT PRIMARY KEY,
@@ -77,7 +80,8 @@ func (d *DB) InitSchema() error {
 			media_path   TEXT,
 			media_type   TEXT,
 			is_deleted   BOOLEAN   DEFAULT FALSE,
-			timestamp    TIMESTAMP
+			timestamp    TIMESTAMP,
+			is_from_me   BOOLEAN   DEFAULT FALSE
 		);`,
 		`CREATE TABLE IF NOT EXISTS scheduled_messages (
 			id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,19 +96,25 @@ func (d *DB) InitSchema() error {
 			return fmt.Errorf("InitSchema: %w", err)
 		}
 	}
+
+	// Schema migrations for existing databases
+	_, _ = d.conn.Exec(`ALTER TABLE chats ADD COLUMN last_message TEXT DEFAULT '';`)
+	_, _ = d.conn.Exec(`ALTER TABLE messages ADD COLUMN is_from_me BOOLEAN DEFAULT FALSE;`)
+
 	return nil
 }
 
 // UpsertChat inserts or updates a chat record.
-func (d *DB) UpsertChat(jid, name string, unreadCount int, lastMsgAt time.Time) error {
+func (d *DB) UpsertChat(jid, name string, unreadCount int, lastMsgAt time.Time, lastMsg string) error {
 	_, err := d.conn.Exec(
-		`INSERT INTO chats (jid, name, unread_count, last_message_at)
-		 VALUES (?, ?, ?, ?)
+		`INSERT INTO chats (jid, name, unread_count, last_message_at, last_message)
+		 VALUES (?, ?, ?, ?, ?)
 		 ON CONFLICT(jid) DO UPDATE SET
-		     name             = excluded.name,
+		     name             = CASE WHEN excluded.name != '' THEN excluded.name ELSE chats.name END,
 		     unread_count     = excluded.unread_count,
-		     last_message_at  = excluded.last_message_at`,
-		jid, name, unreadCount, lastMsgAt,
+		     last_message_at  = excluded.last_message_at,
+		     last_message     = CASE WHEN excluded.last_message != '' THEN excluded.last_message ELSE chats.last_message END`,
+		jid, name, unreadCount, lastMsgAt, lastMsg,
 	)
 	if err != nil {
 		return fmt.Errorf("UpsertChat: %w", err)
@@ -112,13 +122,17 @@ func (d *DB) UpsertChat(jid, name string, unreadCount int, lastMsgAt time.Time) 
 	return nil
 }
 
-// SaveMessage inserts a message record. Duplicate IDs are ignored.
-func (d *DB) SaveMessage(id, chatJID, senderJID, text, mediaPath, mediaType string, ts time.Time) error {
+// SaveMessage inserts or updates a message record.
+func (d *DB) SaveMessage(id, chatJID, senderJID, text, mediaPath, mediaType string, ts time.Time, isFromMe bool) error {
 	_, err := d.conn.Exec(
-		`INSERT OR IGNORE INTO messages
-		     (id, chat_jid, sender_jid, message_text, media_path, media_type, is_deleted, timestamp)
-		 VALUES (?, ?, ?, ?, ?, ?, FALSE, ?)`,
-		id, chatJID, senderJID, text, mediaPath, mediaType, ts,
+		`INSERT INTO messages
+		     (id, chat_jid, sender_jid, message_text, media_path, media_type, is_deleted, timestamp, is_from_me)
+		 VALUES (?, ?, ?, ?, ?, ?, FALSE, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+		     message_text = excluded.message_text,
+		     media_path   = CASE WHEN excluded.media_path != '' THEN excluded.media_path ELSE messages.media_path END,
+		     media_type   = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE messages.media_type END`,
+		id, chatJID, senderJID, text, mediaPath, mediaType, ts, isFromMe,
 	)
 	if err != nil {
 		return fmt.Errorf("SaveMessage: %w", err)
@@ -140,7 +154,7 @@ func (d *DB) MarkDeleted(msgID string) error {
 // GetChats returns all chats ordered by last_message_at descending.
 func (d *DB) GetChats() ([]Chat, error) {
 	rows, err := d.conn.Query(
-		`SELECT jid, name, unread_count, last_message_at
+		`SELECT jid, name, unread_count, last_message_at, COALESCE(last_message, '')
 		 FROM chats
 		 ORDER BY last_message_at DESC`,
 	)
@@ -152,7 +166,7 @@ func (d *DB) GetChats() ([]Chat, error) {
 	var chats []Chat
 	for rows.Next() {
 		var c Chat
-		if err := rows.Scan(&c.JID, &c.Name, &c.UnreadCount, &c.LastMessageAt); err != nil {
+		if err := rows.Scan(&c.JID, &c.Name, &c.UnreadCount, &c.LastMessageAt, &c.LastMessage); err != nil {
 			return nil, fmt.Errorf("GetChats scan: %w", err)
 		}
 		chats = append(chats, c)
@@ -163,7 +177,7 @@ func (d *DB) GetChats() ([]Chat, error) {
 // GetMessages returns all messages for a given chat JID ordered by timestamp ascending.
 func (d *DB) GetMessages(chatJID string) ([]Message, error) {
 	rows, err := d.conn.Query(
-		`SELECT id, chat_jid, sender_jid, message_text, media_path, media_type, is_deleted, timestamp
+		`SELECT id, chat_jid, sender_jid, message_text, media_path, media_type, is_deleted, timestamp, is_from_me
 		 FROM messages
 		 WHERE chat_jid = ?
 		 ORDER BY timestamp ASC`,
@@ -179,7 +193,7 @@ func (d *DB) GetMessages(chatJID string) ([]Message, error) {
 		var m Message
 		if err := rows.Scan(
 			&m.ID, &m.ChatJID, &m.SenderJID, &m.MessageText,
-			&m.MediaPath, &m.MediaType, &m.IsDeleted, &m.Timestamp,
+			&m.MediaPath, &m.MediaType, &m.IsDeleted, &m.Timestamp, &m.IsFromMe,
 		); err != nil {
 			return nil, fmt.Errorf("GetMessages scan: %w", err)
 		}

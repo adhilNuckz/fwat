@@ -33,8 +33,8 @@ type Server struct {
 	db         *db.DB
 	wa         *whatsapp.Engine
 	port       string
-	sseClients map[string]chan []byte
-	sseMu      sync.Mutex
+	sseClients map[chan whatsapp.EventUpdate]struct{}
+	sseMu      sync.RWMutex
 }
 
 // New creates a new Server instance.
@@ -43,7 +43,7 @@ func New(database *db.DB, wa *whatsapp.Engine, port string) *Server {
 		db:         database,
 		wa:         wa,
 		port:       port,
-		sseClients: make(map[string]chan []byte),
+		sseClients: make(map[chan whatsapp.EventUpdate]struct{}),
 	}
 }
 
@@ -68,6 +68,11 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
 
+	// API: status
+	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
+		jsonOK(w, map[string]interface{}{"connected": s.wa.IsConnected()})
+	})
+
 	// API: list chats
 	mux.HandleFunc("GET /api/chats", s.handleChats)
 
@@ -83,8 +88,9 @@ func (s *Server) Start() error {
 	// API: schedule a message
 	mux.HandleFunc("POST /api/schedule", s.handleSchedule)
 
-	// API: QR code SSE stream
-	mux.HandleFunc("GET /api/qr", s.handleQR)
+	// API: events & QR code SSE stream (both paths work)
+	mux.HandleFunc("GET /api/events", s.handleEvents)
+	mux.HandleFunc("GET /api/qr", s.handleEvents)
 
 	// Serve media files from ./media/ directory
 	mux.Handle("GET /media/", http.StripPrefix("/media/", http.FileServer(http.Dir("./media/"))))
@@ -98,6 +104,9 @@ func (s *Server) Start() error {
 	// Wrap all routes with auth middleware
 	handler := auth.Middleware(mux)
 
+	// Broadcast updates to all SSE clients
+	go s.distributeEvents()
+
 	// Start the scheduler in the background
 	ctx := context.Background()
 	go s.runScheduler(ctx)
@@ -107,12 +116,29 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(addr, handler)
 }
 
+// distributeEvents forwards engine event updates to all active SSE subscribers.
+func (s *Server) distributeEvents() {
+	for up := range s.wa.UpdateChan {
+		s.sseMu.RLock()
+		for ch := range s.sseClients {
+			select {
+			case ch <- up:
+			default:
+			}
+		}
+		s.sseMu.RUnlock()
+	}
+}
+
 // handleChats returns a JSON list of all chats from the database.
 func (s *Server) handleChats(w http.ResponseWriter, r *http.Request) {
 	chats, err := s.db.GetChats()
 	if err != nil {
 		jsonErr(w, "failed to fetch chats: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if chats == nil {
+		chats = []db.Chat{}
 	}
 	jsonOK(w, chats)
 }
@@ -128,6 +154,9 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		jsonErr(w, "failed to fetch messages: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if messages == nil {
+		messages = []db.Message{}
 	}
 	jsonOK(w, messages)
 }
@@ -146,11 +175,12 @@ func (s *Server) handleSend(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "phone and text are required", http.StatusBadRequest)
 		return
 	}
-	if err := s.wa.SendTextMessage(r.Context(), body.Phone, body.Text); err != nil {
+	msg, err := s.wa.SendTextMessage(r.Context(), body.Phone, body.Text)
+	if err != nil {
 		jsonErr(w, "failed to send message: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	jsonOK(w, map[string]string{"status": "sent"})
+	jsonOK(w, map[string]interface{}{"status": "sent", "message": msg})
 }
 
 // handlePing sends multiple messages with a delay between each.
@@ -183,7 +213,7 @@ func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(time.Duration(body.IntervalSeconds) * time.Second)
 			}
 			msg := body.Text + " (" + strconv.Itoa(i+1) + "/" + strconv.Itoa(body.Count) + ")"
-			if err := s.wa.SendTextMessage(ctx, body.Phone, msg); err != nil {
+			if _, err := s.wa.SendTextMessage(ctx, body.Phone, msg); err != nil {
 				log.Printf("ping send error (attempt %d/%d): %v", i+1, body.Count, err)
 			}
 		}
@@ -219,37 +249,80 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"status": "scheduled"})
 }
 
-// handleQR streams QR code PNGs as base64 SSE data URIs to the browser.
-func (s *Server) handleQR(w http.ResponseWriter, r *http.Request) {
+// handleEvents streams SSE real-time updates (QR, connection, new messages, deletions).
+func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "SSE not supported", http.StatusInternalServerError)
 		return
 	}
+
+	clientChan := make(chan whatsapp.EventUpdate, 50)
+	s.sseMu.Lock()
+	s.sseClients[clientChan] = struct{}{}
+	s.sseMu.Unlock()
+
+	defer func() {
+		s.sseMu.Lock()
+		delete(s.sseClients, clientChan)
+		s.sseMu.Unlock()
+	}()
+
+	// Send initial status
+	if s.wa.IsConnected() {
+		fmt.Fprintf(w, "event: connected\ndata: ok\n\n")
+	} else {
+		fmt.Fprintf(w, "event: status\ndata: {\"connected\":false}\n\n")
+	}
+	flusher.Flush()
+
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
-		case qrPNG, ok := <-s.wa.QRChan:
-			if !ok {
-				return
-			}
+		case <-r.Context().Done():
+			return
+		case qrPNG := <-s.wa.QRChan:
 			encoded := base64.StdEncoding.EncodeToString(qrPNG)
 			fmt.Fprintf(w, "event: qr\ndata: %s\n\n", encoded)
 			flusher.Flush()
-		case <-s.wa.Connected:
-			fmt.Fprintf(w, "event: connected\ndata: ok\n\n")
+		case up := <-clientChan:
+			switch up.Type {
+			case "qr":
+				if png, ok := up.Payload.([]byte); ok {
+					encoded := base64.StdEncoding.EncodeToString(png)
+					fmt.Fprintf(w, "event: qr\ndata: %s\n\n", encoded)
+				}
+			case "connected":
+				fmt.Fprintf(w, "event: connected\ndata: ok\n\n")
+			case "disconnected":
+				fmt.Fprintf(w, "event: disconnected\ndata: disconnected\n\n")
+			case "new_message":
+				data, _ := json.Marshal(up.Payload)
+				fmt.Fprintf(w, "event: new_message\ndata: %s\n\n", string(data))
+			case "deleted_message":
+				data, _ := json.Marshal(map[string]interface{}{"id": up.Payload})
+				fmt.Fprintf(w, "event: deleted_message\ndata: %s\n\n", string(data))
+			case "chat_updated":
+				data, _ := json.Marshal(map[string]interface{}{"jid": up.Payload})
+				fmt.Fprintf(w, "event: chat_updated\ndata: %s\n\n", string(data))
+			}
 			flusher.Flush()
-			return
-		case <-r.Context().Done():
-			return
+		case <-ticker.C:
+			// Heartbeat
+			fmt.Fprintf(w, ": keepalive\n\n")
+			flusher.Flush()
 		}
 	}
 }
 
-// runScheduler polls the database every 30 seconds for pending scheduled messages
-// and sends them via the WhatsApp engine.
+// runScheduler polls the database every 30 seconds for pending scheduled messages.
 func (s *Server) runScheduler(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
@@ -262,8 +335,8 @@ func (s *Server) runScheduler(ctx context.Context) {
 				continue
 			}
 			for _, item := range items {
-				if err := s.wa.SendTextMessage(ctx, item.TargetPhone, item.MessageText); err != nil {
-					log.Println("scheduled send error:", err)
+				if _, err := s.wa.SendTextMessage(ctx, item.TargetPhone, item.MessageText); err != nil {
+					log.Printf("scheduled send error to %s: %v", item.TargetPhone, err)
 				} else {
 					s.db.MarkScheduledSent(item.ID)
 				}
@@ -286,5 +359,3 @@ func jsonErr(w http.ResponseWriter, msg string, code int) {
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
-
-

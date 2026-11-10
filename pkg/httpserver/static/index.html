@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WhatsApp Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <style>
     :root {
       --bg-primary: #0f172a;
@@ -96,183 +95,201 @@
     <div class="flex items-center gap-4">
       <div id="status-badge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium" style="background:#1e293b; border:1px solid #334155;">
         <span class="status-dot disconnected" id="status-dot"></span>
-        <span id="status-text" class="text-slate-300">Disconnected</span>
+        <span id="status-text" class="text-slate-300">Connecting…</span>
       </div>
-      <button onclick="openScheduleModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium btn-slate">
-        🕒 Schedule
-      </button>
-      <a href="/help.html" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium btn-slate">
-        ❓ Help
+      <a href="/help" target="_blank" class="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5" style="background:#1e293b; border:1px solid #334155;">
+        <span>📖</span> Help Center
       </a>
     </div>
   </nav>
 
-  <!-- BODY -->
+  <!-- WORKSPACE BODY -->
   <div class="flex flex-1 overflow-hidden">
 
     <!-- ── SIDEBAR ── -->
-    <aside class="flex flex-col w-80 shrink-0" style="background:#1e293b; border-right:1px solid #334155;">
-      <!-- Search -->
-      <div class="p-3">
-        <input id="search-input" type="text" placeholder="🔍  Search chats…"
-          class="search-input w-full px-4 py-2 rounded-xl text-sm"
-          oninput="filterChats(this.value)" />
-      </div>
-      <!-- Chat list -->
-      <div id="chat-list" class="flex-1 overflow-y-auto">
-        <div class="flex flex-col items-center justify-center h-32 text-slate-500 text-sm gap-2">
-          <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-          </svg>
-          Loading chats…
+    <aside class="flex flex-col shrink-0 w-80 md:w-96" style="background:#1e293b; border-right:1px solid #334155;">
+      
+      <!-- SEARCH & NEW CHAT TOOLBAR -->
+      <div class="p-3 flex items-center gap-2" style="border-bottom:1px solid #334155;">
+        <div class="relative flex-1">
+          <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Search conversations…"
+            class="search-input w-full pl-9 pr-3 py-2 rounded-lg text-sm"
+            oninput="filterChats(this.value)"
+          />
         </div>
-      </div>
-      <!-- New Chat button -->
-      <div class="p-3" style="border-top:1px solid #334155;">
-        <button onclick="openNewChatModal()" class="btn-green w-full py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
-          <span class="text-lg leading-none">+</span> New Chat
+        <button
+          onclick="openNewChatModal()"
+          title="New Chat"
+          class="btn-green p-2 rounded-lg shrink-0 flex items-center justify-center w-9 h-9"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         </button>
+      </div>
+
+      <!-- CHAT LIST -->
+      <div id="chat-list" class="flex-1 overflow-y-auto divide-y divide-slate-800">
+        <div class="p-6 text-center text-slate-500 text-sm">Loading chats…</div>
       </div>
     </aside>
 
-    <!-- ── CHAT PANEL ── -->
-    <main class="flex flex-col flex-1 overflow-hidden">
-      <!-- Empty state -->
-      <div id="empty-state" class="flex flex-col flex-1 items-center justify-center gap-4 text-slate-500">
-        <span class="text-6xl opacity-30">💬</span>
-        <p class="text-lg font-medium">Select a chat to start reading</p>
-        <p class="text-sm">or create a new conversation</p>
+    <!-- ── MAIN CHAT AREA ── -->
+    <main class="flex-1 flex flex-col overflow-hidden" style="background:#0f172a;">
+
+      <!-- EMPTY STATE -->
+      <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3">
+        <span class="text-5xl">💬</span>
+        <p class="text-base font-medium">Select a chat or start a new conversation</p>
+        <button onclick="openNewChatModal()" class="btn-green text-xs px-4 py-2 rounded-lg font-medium mt-1">
+          + Start New Chat
+        </button>
       </div>
 
-      <!-- Chat view -->
-      <div id="chat-view" class="hidden flex flex-col flex-1 overflow-hidden">
-        <!-- Chat header -->
-        <div id="chat-header" class="flex items-center justify-between px-5 py-3 shrink-0" style="background:#1e293b; border-bottom:1px solid #334155;">
-          <div>
-            <div id="chat-name" class="font-semibold text-white text-base"></div>
-            <div id="chat-jid" class="text-xs text-slate-400 font-mono"></div>
+      <!-- ACTIVE CHAT VIEW -->
+      <div id="chat-view" class="hidden flex-1 flex flex-col h-full overflow-hidden">
+
+        <!-- CHAT HEADER -->
+        <div class="flex items-center justify-between px-6 py-3 shrink-0" style="background:#1e293b; border-bottom:1px solid #334155;">
+          <div class="flex items-center gap-3 min-w-0">
+            <div id="header-avatar" class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0" style="background:#3b82f6;">
+              ?
+            </div>
+            <div class="min-w-0">
+              <h2 id="chat-name" class="font-bold text-white text-base truncate">Contact Name</h2>
+              <p id="chat-jid" class="text-xs text-slate-400 truncate">1234567890@s.whatsapp.net</p>
+            </div>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="openPingModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium" style="background:#1a3a4a; border:1px solid #1e4a6a; color:#7dd3fc;">
-              ⚡ Ping
+            <button
+              onclick="openPingModal()"
+              title="Ping Contact"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white transition-colors"
+            >
+              <span>⚡</span> Ping
             </button>
-            <button onclick="refreshMessages()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium btn-slate">
-              🔄 Refresh
+            <button
+              onclick="openScheduleModal()"
+              title="Schedule Message"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+            >
+              <span>📅</span> Schedule
             </button>
           </div>
         </div>
 
-        <!-- Messages -->
-        <div id="messages-container" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-          <!-- messages rendered here -->
+        <!-- MESSAGES CONTAINER -->
+        <div id="messages-container" class="flex-1 overflow-y-auto p-6 space-y-3">
+          <!-- Bubbles injected here -->
         </div>
 
-        <!-- Input area -->
-        <div class="shrink-0 p-3" style="border-top:1px solid #334155; background:#1e293b;">
-          <div class="flex items-end gap-2">
-            <textarea id="msg-input" class="msg-input flex-1 px-4 py-2.5 rounded-xl text-sm" rows="1"
-              placeholder="Type a message…"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"
-              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
-            <button onclick="sendMessage()" class="btn-green shrink-0 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
-              </svg>
-              Send
+        <!-- MESSAGE COMPOSER -->
+        <div class="p-4 shrink-0" style="background:#1e293b; border-top:1px solid #334155;">
+          <form onsubmit="event.preventDefault(); sendMessage();" class="flex items-end gap-3">
+            <textarea
+              id="msg-input"
+              rows="1"
+              placeholder="Type a message… (Shift+Enter for new line)"
+              class="msg-input flex-1 px-4 py-2.5 rounded-xl text-sm leading-relaxed max-h-32"
+              onkeydown="handleKey(event)"
+            ></textarea>
+            <button
+              type="submit"
+              class="btn-green px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 shrink-0 h-11"
+            >
+              <span>Send</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             </button>
-          </div>
+          </form>
         </div>
+
       </div>
+
     </main>
+
   </div>
+
 </div>
 
 <!-- ═══════════════ PING MODAL ═══════════════ -->
 <div id="ping-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay">
-  <div class="modal-bg rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
-    <div class="flex items-center justify-between mb-5">
-      <h2 class="text-lg font-bold text-white flex items-center gap-2">⚡ Ping Tool</h2>
-      <button onclick="closePingModal()" class="text-slate-400 hover:text-white transition-colors text-xl leading-none">✕</button>
+  <div class="modal-bg rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-bold text-lg text-white flex items-center gap-2"><span>⚡</span> Ping Contact</h3>
+      <button onclick="closePingModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
     </div>
-    <div class="flex flex-col gap-3">
+    <div class="space-y-3">
       <div>
-        <label class="block text-xs text-slate-400 mb-1 font-medium">Target Number (with country code)</label>
-        <input id="ping-phone" type="text" placeholder="e.g. 919876543210" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
+        <label class="block text-xs font-medium text-slate-300 mb-1">Target Phone (E.164 without +)</label>
+        <input id="ping-phone" type="text" placeholder="e.g. 15551234567" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
       </div>
       <div>
-        <label class="block text-xs text-slate-400 mb-1 font-medium">Message</label>
-        <textarea id="ping-msg" rows="3" placeholder="Message to send…" class="modal-input w-full px-3 py-2 rounded-lg text-sm resize-none"></textarea>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Message Content</label>
+        <textarea id="ping-msg" rows="2" placeholder="Ping notification!" class="modal-input w-full px-3 py-2 rounded-lg text-sm"></textarea>
       </div>
-      <div class="flex gap-3">
-        <div class="flex-1">
-          <label class="block text-xs text-slate-400 mb-1 font-medium">Repeat Count</label>
-          <input id="ping-count" type="number" value="1" min="1" max="100" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Repeat Count</label>
+          <input id="ping-count" type="number" min="1" max="100" value="5" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
         </div>
-        <div class="flex-1">
-          <label class="block text-xs text-slate-400 mb-1 font-medium">Interval (seconds)</label>
-          <input id="ping-interval" type="number" value="5" min="1" max="3600" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Gap / Interval (sec)</label>
+          <input id="ping-interval" type="number" min="1" max="60" value="5" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
         </div>
       </div>
-      <div class="flex items-start gap-2 p-3 rounded-lg text-xs text-amber-300" style="background:#451a03; border:1px solid #78350f;">
-        <span class="text-base leading-none shrink-0">⚠️</span>
-        <span>Use intervals of <strong>3+ seconds</strong> to avoid WhatsApp rate limiting and potential account bans.</span>
-      </div>
+      <p class="text-xs text-amber-400">⚠️ Recommend 3+ seconds interval to avoid WhatsApp rate limits</p>
     </div>
-    <div class="flex gap-3 mt-5">
-      <button onclick="closePingModal()" class="btn-slate flex-1 py-2 rounded-xl text-sm font-semibold">Cancel</button>
-      <button onclick="executePing()" class="btn-green flex-1 py-2 rounded-xl text-sm font-semibold">⚡ Send Ping</button>
+    <div class="flex justify-end gap-3 pt-2">
+      <button onclick="closePingModal()" class="btn-slate px-4 py-2 rounded-lg text-sm">Cancel</button>
+      <button onclick="executePing()" class="btn-green px-5 py-2 rounded-lg text-sm font-semibold">Start Ping</button>
     </div>
   </div>
 </div>
 
 <!-- ═══════════════ NEW CHAT MODAL ═══════════════ -->
 <div id="new-chat-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay">
-  <div class="modal-bg rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl">
-    <div class="flex items-center justify-between mb-5">
-      <h2 class="text-lg font-bold text-white">➕ New Chat</h2>
-      <button onclick="closeNewChatModal()" class="text-slate-400 hover:text-white transition-colors text-xl leading-none">✕</button>
+  <div class="modal-bg rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-bold text-lg text-white flex items-center gap-2"><span>➕</span> Start New Chat</h3>
+      <button onclick="closeNewChatModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
     </div>
-    <div class="flex flex-col gap-3">
-      <div>
-        <label class="block text-xs text-slate-400 mb-1 font-medium">Phone Number (with country code)</label>
-        <input id="new-chat-phone" type="text" placeholder="e.g. 919876543210"
-          class="modal-input w-full px-3 py-2 rounded-lg text-sm"
-          onkeydown="if(event.key==='Enter') openNewChat()" />
-        <p class="text-xs text-slate-500 mt-1">Include country code without + (e.g. 1 for US, 91 for India)</p>
-      </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Phone Number (with country code, no +)</label>
+      <input id="new-chat-phone" type="text" placeholder="e.g. 919876543210" class="modal-input w-full px-3 py-2 rounded-lg text-sm" onkeydown="if(event.key==='Enter') openNewChat();" />
     </div>
-    <div class="flex gap-3 mt-5">
-      <button onclick="closeNewChatModal()" class="btn-slate flex-1 py-2 rounded-xl text-sm font-semibold">Cancel</button>
-      <button onclick="openNewChat()" class="btn-green flex-1 py-2 rounded-xl text-sm font-semibold">Open Chat</button>
+    <div class="flex justify-end gap-3 pt-2">
+      <button onclick="closeNewChatModal()" class="btn-slate px-4 py-2 rounded-lg text-sm">Cancel</button>
+      <button onclick="openNewChat()" class="btn-green px-5 py-2 rounded-lg text-sm font-semibold">Open Chat</button>
     </div>
   </div>
 </div>
 
 <!-- ═══════════════ SCHEDULE MODAL ═══════════════ -->
 <div id="schedule-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-overlay">
-  <div class="modal-bg rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
-    <div class="flex items-center justify-between mb-5">
-      <h2 class="text-lg font-bold text-white flex items-center gap-2">🕒 Schedule Message</h2>
-      <button onclick="closeScheduleModal()" class="text-slate-400 hover:text-white transition-colors text-xl leading-none">✕</button>
+  <div class="modal-bg rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-bold text-lg text-white flex items-center gap-2"><span>📅</span> Schedule Message</h3>
+      <button onclick="closeScheduleModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
     </div>
-    <div class="flex flex-col gap-3">
+    <div class="space-y-3">
       <div>
-        <label class="block text-xs text-slate-400 mb-1 font-medium">Phone Number (with country code)</label>
-        <input id="sched-phone" type="text" placeholder="e.g. 919876543210" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
+        <label class="block text-xs font-medium text-slate-300 mb-1">Target Phone</label>
+        <input id="sched-phone" type="text" placeholder="e.g. 15551234567" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
       </div>
       <div>
-        <label class="block text-xs text-slate-400 mb-1 font-medium">Message</label>
-        <textarea id="sched-msg" rows="3" placeholder="Message to schedule…" class="modal-input w-full px-3 py-2 rounded-lg text-sm resize-none"></textarea>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Message</label>
+        <textarea id="sched-msg" rows="2" placeholder="Reminder text…" class="modal-input w-full px-3 py-2 rounded-lg text-sm"></textarea>
       </div>
       <div>
-        <label class="block text-xs text-slate-400 mb-1 font-medium">Send At</label>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Send At</label>
         <input id="sched-time" type="datetime-local" class="modal-input w-full px-3 py-2 rounded-lg text-sm" />
       </div>
     </div>
-    <div class="flex gap-3 mt-5">
-      <button onclick="closeScheduleModal()" class="btn-slate flex-1 py-2 rounded-xl text-sm font-semibold">Cancel</button>
-      <button onclick="executeSchedule()" class="btn-green flex-1 py-2 rounded-xl text-sm font-semibold">🕒 Schedule</button>
+    <div class="flex justify-end gap-3 pt-2">
+      <button onclick="closeScheduleModal()" class="btn-slate px-4 py-2 rounded-lg text-sm">Cancel</button>
+      <button onclick="executeSchedule()" class="btn-green px-5 py-2 rounded-lg text-sm font-semibold">Schedule</button>
     </div>
   </div>
 </div>
@@ -286,36 +303,84 @@
 <div id="toast-container"></div>
 
 <script>
-  // ─── State ───────────────────────────────────────────────────────────────
   let currentJID = '';
   let allChats = [];
+  let sseSource = null;
 
-  // ─── SSE: QR / Connection ─────────────────────────────────────────────────
+  // ─── SSE / Event Stream ──────────────────────────────────────────────────
   function initSSE() {
-    const evtSource = new EventSource('/api/qr');
+    if (sseSource) {
+      try { sseSource.close(); } catch {}
+    }
+    sseSource = new EventSource('/api/events');
 
-    evtSource.addEventListener('qr', e => {
+    sseSource.addEventListener('qr', e => {
       const img = document.getElementById('qr-img');
       img.src = 'data:image/png;base64,' + e.data;
       document.getElementById('qr-screen').classList.remove('hidden');
       document.getElementById('main-app').classList.add('hidden');
+      setStatus(false);
     });
 
-    evtSource.addEventListener('connected', e => {
+    sseSource.addEventListener('status', e => {
+      try {
+        const data = JSON.parse(e.data);
+        setStatus(data.connected);
+        if (data.connected) {
+          document.getElementById('qr-screen').classList.add('hidden');
+          document.getElementById('main-app').classList.remove('hidden');
+          loadChats();
+        }
+      } catch {}
+    });
+
+    sseSource.addEventListener('connected', () => {
       document.getElementById('qr-screen').classList.add('hidden');
       document.getElementById('main-app').classList.remove('hidden');
       setStatus(true);
       loadChats();
+      if (currentJID) loadMessages(currentJID);
     });
 
-    evtSource.addEventListener('disconnected', e => {
+    sseSource.addEventListener('disconnected', () => {
       setStatus(false);
-      document.getElementById('qr-screen').classList.remove('hidden');
-      document.getElementById('main-app').classList.add('hidden');
     });
 
-    evtSource.onerror = () => {
-      setStatus(false);
+    sseSource.addEventListener('new_message', e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.chat_jid === currentJID) {
+          loadMessages(currentJID, true);
+        }
+        loadChats();
+      } catch {}
+    });
+
+    sseSource.addEventListener('deleted_message', e => {
+      try {
+        const data = JSON.parse(e.data);
+        const el = document.getElementById('msg-' + data.id);
+        if (el) {
+          const badge = el.querySelector('.deleted-badge');
+          if (!badge) {
+            const wrap = el.querySelector('.chat-bubble-in, .chat-bubble-out');
+            if (wrap) {
+              const b = document.createElement('div');
+              b.className = 'mb-1';
+              b.innerHTML = '<span class="deleted-badge mr-2">[DELETED MESSAGE]</span>';
+              wrap.prepend(b);
+            }
+          }
+        }
+      } catch {}
+    });
+
+    sseSource.addEventListener('chat_updated', () => {
+      loadChats();
+    });
+
+    sseSource.onerror = () => {
+      // Browser EventSource automatically reconnects
     };
   }
 
@@ -331,12 +396,40 @@
     }
   }
 
+  // ─── Background Polling Loop (Safety Net) ─────────────────────────────────
+  setInterval(async () => {
+    try {
+      const res = await fetch('/api/chats');
+      if (res.ok) {
+        const chats = await res.json();
+        allChats = chats || [];
+        renderChats(allChats);
+      }
+      if (currentJID) {
+        const msgRes = await fetch('/api/messages?jid=' + encodeURIComponent(currentJID));
+        if (msgRes.ok) {
+          const msgs = await msgRes.json();
+          renderMessages(msgs, false);
+        }
+      }
+      const stRes = await fetch('/api/status');
+      if (stRes.ok) {
+        const st = await stRes.json();
+        setStatus(st.connected);
+        if (st.connected) {
+          document.getElementById('qr-screen').classList.add('hidden');
+          document.getElementById('main-app').classList.remove('hidden');
+        }
+      }
+    } catch {}
+  }, 3000);
+
   // ─── Chat Loading ─────────────────────────────────────────────────────────
   async function loadChats() {
     try {
       const res = await fetch('/api/chats');
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      allChats = await res.json();
+      allChats = await res.json() || [];
       renderChats(allChats);
     } catch (err) {
       document.getElementById('chat-list').innerHTML = `
@@ -355,7 +448,8 @@
     list.innerHTML = chats.map(chat => {
       const name = escHtml(chat.name || chat.jid || 'Unknown');
       const jid  = escHtml(chat.jid || '');
-      const ts   = chat.last_message_time ? formatTime(chat.last_message_time) : '';
+      const tsRaw = chat.last_message_at || chat.last_message_time;
+      const ts   = tsRaw ? formatTime(tsRaw) : '';
       const preview = escHtml((chat.last_message || '').slice(0, 48));
       const isActive = chat.jid === currentJID ? ' active' : '';
       return `
@@ -384,78 +478,71 @@
   }
 
   // ─── Message Loading ──────────────────────────────────────────────────────
-  async function loadMessages(jid) {
+  async function loadMessages(jid, forceScroll = true) {
     currentJID = jid;
     document.getElementById('empty-state').classList.add('hidden');
     document.getElementById('chat-view').classList.remove('hidden');
 
-    // Update active chat highlight
     document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
     const chat = allChats.find(c => c.jid === jid);
-    document.getElementById('chat-name').textContent = chat ? (chat.name || jid) : jid;
+    const name = chat ? (chat.name || jid) : jid;
+    document.getElementById('chat-name').textContent = name;
     document.getElementById('chat-jid').textContent = jid;
+    document.getElementById('header-avatar').textContent = (name[0]||'?').toUpperCase();
+    document.getElementById('header-avatar').style.background = strColor(jid);
 
-    // Pre-fill ping modal
     document.getElementById('ping-phone').value = jid.split('@')[0];
-
-    const container = document.getElementById('messages-container');
-    container.innerHTML = `<div class="flex justify-center text-slate-500 text-sm py-8">
-      <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-      </svg>Loading messages…</div>`;
+    document.getElementById('sched-phone').value = jid.split('@')[0];
 
     try {
       const res = await fetch('/api/messages?jid=' + encodeURIComponent(jid));
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const messages = await res.json();
-      renderMessages(messages);
+      const messages = await res.json() || [];
+      renderMessages(messages, forceScroll);
     } catch (err) {
-      container.innerHTML = `<div class="text-center text-red-400 text-sm py-8">Failed to load messages: ${escHtml(err.message)}</div>`;
+      document.getElementById('messages-container').innerHTML =
+        `<div class="text-center text-red-400 text-sm py-8">Failed to load messages: ${escHtml(err.message)}</div>`;
     }
   }
 
-  function refreshMessages() {
-    if (currentJID) loadMessages(currentJID);
-  }
-
-  function renderMessages(messages) {
+  function renderMessages(messages, autoScroll = true) {
     const container = document.getElementById('messages-container');
     if (!messages || messages.length === 0) {
       container.innerHTML = '<div class="text-center text-slate-500 text-sm py-12">No messages yet</div>';
       return;
     }
 
-    container.innerHTML = messages.map(msg => {
+    const html = messages.map(msg => {
       const isOut = msg.is_from_me === true || msg.is_from_me === 1;
       const align = isOut ? 'items-end' : 'items-start';
       const bubbleClass = isOut ? 'chat-bubble-out' : 'chat-bubble-in';
       const ts = msg.timestamp ? formatTimeFull(msg.timestamp) : '';
-      const sender = !isOut && msg.sender ? `<div class="sender-name">${escHtml(msg.sender)}</div>` : '';
+      const sender = !isOut && msg.sender_jid ? `<div class="sender-name">${escHtml(msg.sender_jid.split('@')[0])}</div>` : '';
       const deletedBadge = msg.is_deleted ? `<span class="deleted-badge mr-2">[DELETED MESSAGE]</span>` : '';
       const textStyle = msg.is_deleted ? 'color:#94a3b8; text-decoration:line-through;' : 'color:#e2e8f0;';
 
+      const textContent = msg.message_text || msg.body || msg.text || '';
+      const bodyText = textContent ? `<div class="text-sm leading-relaxed mt-1 whitespace-pre-wrap" style="${textStyle}">${escHtml(textContent)}</div>` : '';
+
       let mediaHtml = '';
-      if (msg.media_type && msg.media_url) {
-        const url = '/media/' + escAttr(msg.media_url);
-        if (msg.media_type === 'image') {
+      const mediaPath = msg.media_path || msg.media_url || '';
+      if (msg.media_type && mediaPath) {
+        const url = mediaPath.startsWith('/media/') ? mediaPath : '/media/' + mediaPath;
+        if (msg.media_type === 'image' || msg.media_type === 'images') {
           mediaHtml = `<img class="media-img mt-2" src="${url}" alt="image" onclick="openLightbox('${url}')" />`;
-        } else if (msg.media_type === 'video') {
+        } else if (msg.media_type === 'video' || msg.media_type === 'videos') {
           mediaHtml = `<video controls class="mt-2" src="${url}" style="max-width:280px;border-radius:8px;"></video>`;
         } else if (msg.media_type === 'audio') {
           mediaHtml = `<audio controls class="mt-2" src="${url}"></audio>`;
-        } else if (msg.media_type === 'document') {
-          const fname = msg.filename || 'document';
+        } else if (msg.media_type === 'document' || msg.media_type === 'documents') {
           mediaHtml = `<a href="${url}" download class="mt-2 flex items-center gap-2 text-blue-400 underline text-sm hover:text-blue-300">
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-            ${escHtml(fname)}</a>`;
+            Download attachment</a>`;
         }
       }
 
-      const bodyText = msg.body ? `<div class="text-sm leading-relaxed mt-1 whitespace-pre-wrap" style="${textStyle}">${escHtml(msg.body)}</div>` : '';
-
       return `
-        <div class="flex flex-col ${align}">
+        <div class="flex flex-col ${align}" id="msg-${escAttr(msg.id)}">
           <div class="${bubbleClass} px-4 py-2.5 max-w-xs sm:max-w-sm md:max-w-md" style="max-width:70%;">
             ${sender}
             ${deletedBadge ? `<div class="mb-1">${deletedBadge}</div>` : ''}
@@ -466,8 +553,10 @@
         </div>`;
     }).join('');
 
-    // Auto-scroll to bottom
-    requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+    container.innerHTML = html;
+    if (autoScroll) {
+      requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+    }
   }
 
   // ─── Send Message ─────────────────────────────────────────────────────────
@@ -475,6 +564,9 @@
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
     if (!text || !currentJID) return;
+
+    input.value = '';
+    input.style.height = 'auto';
 
     try {
       const res = await fetch('/api/send', {
@@ -486,16 +578,21 @@
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(err.error || 'HTTP ' + res.status);
       }
-      input.value = '';
-      input.style.height = 'auto';
-      showToast('Message sent ✓', 'success');
-      setTimeout(() => loadMessages(currentJID), 500);
+      setTimeout(() => loadMessages(currentJID, true), 200);
+      loadChats();
     } catch (err) {
       showToast('Send failed: ' + err.message, 'error');
     }
   }
 
-  // ─── Ping ─────────────────────────────────────────────────────────────────
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  // ─── Ping Tool ────────────────────────────────────────────────────────────
   function openPingModal() {
     document.getElementById('ping-modal').classList.remove('hidden');
   }
@@ -518,24 +615,16 @@
       const res = await fetch('/api/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, text, count, interval })
+        body: JSON.stringify({ phone, text, count, interval_seconds: interval })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(err.error || 'HTTP ' + res.status);
       }
-      showToast(`Ping queued: ${count}× to ${phone}`, 'success');
+      showToast(`Ping started: ${count}× messages queued`, 'success');
     } catch (err) {
       showToast('Ping failed: ' + err.message, 'error');
     }
-  }
-
-  async function sendPing(phone, text, count, interval) {
-    return fetch('/api/ping', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, text, count, interval })
-    });
   }
 
   // ─── New Chat ─────────────────────────────────────────────────────────────
@@ -552,17 +641,15 @@
     if (!phone) { showToast('Please enter a phone number', 'error'); return; }
     const jid = phone.includes('@') ? phone : phone + '@s.whatsapp.net';
     closeNewChatModal();
-    // Check if chat already exists in list; if not, create a stub
     if (!allChats.find(c => c.jid === jid)) {
-      allChats.unshift({ jid, name: phone, last_message: '', last_message_time: null });
+      allChats.unshift({ jid, name: phone, last_message: '', last_message_at: new Date().toISOString() });
       renderChats(allChats);
     }
-    loadMessages(jid);
+    loadMessages(jid, true);
   }
 
   // ─── Schedule ─────────────────────────────────────────────────────────────
   function openScheduleModal() {
-    // Set min datetime to now
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     document.getElementById('sched-time').min = now.toISOString().slice(0,16);
@@ -575,34 +662,27 @@
   async function executeSchedule() {
     const phone = document.getElementById('sched-phone').value.trim();
     const text  = document.getElementById('sched-msg').value.trim();
-    const time  = document.getElementById('sched-time').value;
+    const timeVal = document.getElementById('sched-time').value;
 
-    if (!phone || !text || !time) { showToast('All fields are required', 'error'); return; }
+    if (!phone || !text || !timeVal) { showToast('All fields are required', 'error'); return; }
 
     closeScheduleModal();
 
     try {
+      const schedule_time = new Date(timeVal).toISOString();
       const res = await fetch('/api/schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, text, time })
+        body: JSON.stringify({ phone, text, schedule_time })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(err.error || 'HTTP ' + res.status);
       }
-      showToast(`Message scheduled for ${time}`, 'success');
+      showToast(`Message scheduled for ${timeVal}`, 'success');
     } catch (err) {
       showToast('Schedule failed: ' + err.message, 'error');
     }
-  }
-
-  async function scheduleMessage(phone, text, time) {
-    return fetch('/api/schedule', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, text, time })
-    });
   }
 
   // ─── Lightbox ─────────────────────────────────────────────────────────────
@@ -651,7 +731,7 @@
   function formatTime(ts) {
     if (!ts) return '';
     try {
-      const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+      const d = new Date(ts);
       const now = new Date();
       if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       const diff = now - d;
@@ -662,7 +742,7 @@
   function formatTimeFull(ts) {
     if (!ts) return '';
     try {
-      const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+      const d = new Date(ts);
       return d.toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
     } catch { return ''; }
   }
@@ -676,6 +756,7 @@
 
   // ─── Init ─────────────────────────────────────────────────────────────────
   initSSE();
+  loadChats();
 </script>
 </body>
 </html>
