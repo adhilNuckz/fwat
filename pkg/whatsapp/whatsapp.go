@@ -40,12 +40,13 @@ func New(database *db.DB, mediaDir string) (*Engine, error) {
 		return nil, fmt.Errorf("whatsapp.New: mkdir data/db: %w", err)
 	}
 
-	container, err := sqlstore.New("sqlite3", "file:./data/db/whatsmeow.db?_foreign_keys=on", nil)
+	ctx := context.Background()
+	container, err := sqlstore.New(ctx, "sqlite3", "file:./data/db/whatsmeow.db?_foreign_keys=on", nil)
 	if err != nil {
 		return nil, fmt.Errorf("whatsapp.New: open store: %w", err)
 	}
 
-	deviceStore, err := container.GetFirstDevice()
+	deviceStore, err := container.GetFirstDevice(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("whatsapp.New: get device: %w", err)
 	}
@@ -137,7 +138,7 @@ func (e *Engine) handleMessage(evt *events.Message) {
 	// ── Revoke / delete detection ────────────────────────────────────────────
 	if pm := msg.GetProtocolMessage(); pm != nil {
 		if pm.GetType() == waE2E.ProtocolMessage_REVOKE {
-			deletedID := pm.GetKey().GetId()
+			deletedID := pm.GetKey().GetID()
 			if err := e.DB.MarkDeleted(deletedID); err != nil {
 				log.Printf("whatsapp: MarkDeleted %q: %v", deletedID, err)
 			}
@@ -229,7 +230,7 @@ func (e *Engine) downloadMedia(evt *events.Message, mediaType, ext string) strin
 		return ""
 	}
 
-	data, err := e.Client.Download(downloadable)
+	data, err := e.Client.Download(context.Background(), downloadable)
 	if err != nil {
 		log.Printf("whatsapp: download %q (%s): %v", msgID, mediaType, err)
 		return ""
